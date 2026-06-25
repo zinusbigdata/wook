@@ -2,7 +2,6 @@
  * ZNS-2940 : Amazon에서 Walmart로 이동한 Brand들을 추적하기
  */
 
-
 --[ I. Amazon 매트리스 brand 연도별 통계 + 소멸 코호트 차트용 데이터 ]
 --CREATE OR REPLACE TABLE wook.tmp_amz_brand_yearly_stats AS
 

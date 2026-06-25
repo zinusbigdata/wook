@@ -2,6 +2,7 @@
  * ZNS-2940 : Amazon에서 Walmart로 이동한 Brand들을 추적하기
  */
 
+
 --[ I. Amazon 매트리스 brand 연도별 통계 + 소멸 코호트 차트용 데이터 ]
 --CREATE OR REPLACE TABLE wook.tmp_amz_brand_yearly_stats AS
 
@@ -109,7 +110,7 @@ WITH brand_year AS (
   WHERE SubCategory = 'Mattresses' AND RetailSales > 0
   GROUP BY 1, 2
 )
-
+--SELECT yr, count(DISTINCT brand) FROM brand_year GROUP BY 1 ORDER BY 1
 -- brand별 최초/마지막 활동 연도 + 누적 매출 (소멸 판정 및 누적매출용)
 , seq AS (
   SELECT brand
@@ -161,6 +162,30 @@ ORDER BY y.yr
 ;
 
 
+
+-- [ Walmart Brand Family 매출 ] ------------------------------
+WITH brand_year AS (
+  SELECT EXTRACT(YEAR FROM WeekEnding)                      AS yr
+       , REGEXP_REPLACE(UPPER(Brand), r'[^[:print:]]', '')  AS brand
+       , ROUND(SUM(RetailSales), 0)                         AS sales
+  FROM stck.wmt_atlas_sales_all
+  WHERE SubCategory = 'Mattresses' AND RetailSales > 0
+  GROUP BY 1, 2
+)
+--SELECT yr, sum(sales) FROM brand_year GROUP BY 1 ORDER BY 1
+, brand_year_fam AS (
+  SELECT by_.yr
+       , by_.brand
+       , by_.sales
+       , COALESCE(fm.FAMILY_NAME, by_.brand) AS brand_family
+  FROM brand_year AS by_
+  LEFT JOIN `meta.brand_family_mapping` AS fm
+         ON by_.brand = REGEXP_REPLACE(UPPER(fm.BRAND_UPPER), r'[^[:print:]]', '')
+)
+SELECT yr, brand_family, sum(sales)
+FROM brand_year_fam
+WHERE brand_family IN ('ZINUS','NOVILLA FAMILY','MLILY FAMILY','FDW DIRECT')    
+GROUP BY 1,2 ORDER BY 1,2 
 
 
 

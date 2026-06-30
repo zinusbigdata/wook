@@ -85,12 +85,12 @@ SELECT
   , wb.wmt_sales_after                      -- 기준연도 이후(당해 포함) Walmart 매출
   -- 이동 판정
   , CASE
-      WHEN w.brand IS NULL                              THEN 'NO_WALMART'      -- 월마트에 없음
-      WHEN a.disappeared_yr IS NULL                     THEN 'AMZ_STILL_ACTIVE'-- 아직 Amazon 활동중
+      WHEN w.brand IS NULL                              THEN 'AMZ_ONLY'      			-- 월마트에 없음
+      WHEN a.disappeared_yr IS NULL                     THEN 'ACTIVE_BOTH_CHANNELS'   	-- 아마존 활동중 + 월마트 병존
       WHEN IFNULL(wb.wmt_sales_after, 0)  > 0
-       AND IFNULL(wb.wmt_sales_before, 0) = 0           THEN 'MIGRATED'        -- 소멸 후 Walmart 신규 등장
-      WHEN IFNULL(wb.wmt_sales_after, 0)  > 0           THEN 'SURVIVED_BOTH'   -- 양쪽 존재 (멀티채널)
-      ELSE 'WMT_ALSO_GONE'                                                     -- 월마트도 그 전에 소멸
+       AND IFNULL(wb.wmt_sales_before, 0) = 0           THEN 'MIGRATED_TO_WMT'        	-- 소멸 후 Walmart 신규 등장
+      WHEN IFNULL(wb.wmt_sales_after, 0)  > 0           THEN 'AMZ_GONE_WMT_SURVIVES'   	-- 아마존 소멸 + 월마트 생존
+      ELSE 'GONE_BOTH_CHANNELS'                                                     	-- 아마존 소멸 + 월마트 소멸
     END AS migration_status
   -- 이동 강도: 소멸후 Walmart / 소멸전 Walmart (참고용)
   , SAFE_DIVIDE(wb.wmt_sales_after, NULLIF(wb.wmt_sales_before, 0)) AS wmt_after_before_ratio

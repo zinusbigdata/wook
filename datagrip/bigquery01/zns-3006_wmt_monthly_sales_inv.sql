@@ -96,7 +96,7 @@ order by yr_month DESC, channel
 
 
 
-
+-----------------------
 
 SELECT *
 from wook.wmt_com_store_sales_mly

@@ -17,22 +17,25 @@ WITH ecom_month_end AS (
 SELECT 'WMT.COM' AS channel
     , yr_month
     , sku
-    , STRING_AGG(DISTINCT CAST(ecomm_upc_number AS STRING), ', ') AS upc_list
-    , ANY_VALUE(product_name) as title
+--    , STRING_AGG(DISTINCT CAST(ecomm_upc_number AS STRING), ', ') AS upc_list
+    , ecomm_upc_number AS upc
+    , ANY_VALUE(product_name) AS title
  --   , ANY_VALUE(catalog_category) as category
     , SUM(on_hand_unit) AS on_hand_unit
 FROM ecom_month_end
-GROUP BY 1, 2, 3
+GROUP BY 1, 2, 3, 4
 UNION ALL
 SELECT 'WMT STORE' AS channel
     , yr_month
     , sku
-    , STRING_AGG(DISTINCT CAST(walmart_upc_number AS STRING), ', ') AS upc_list
-    , ANY_VALUE(product_name) as title
+    --, STRING_AGG(DISTINCT CAST(walmart_upc_number AS STRING), ', ') AS upc_list
+    , walmart_upc_number AS upc
+    , ANY_VALUE(product_name) AS title
  --   , ANY_VALUE(catalog_category) as category
     , SUM(on_hand_unit) AS on_hand_unit
 FROM store_month_end
-GROUP BY 1, 2, 3
+GROUP BY 1, 2, 3, 4
+ORDER BY 1,2 DESC
 ;
 
 
@@ -41,8 +44,9 @@ CREATE OR REPLACE TABLE wook.wmt_com_store_sales_mly AS
 SELECT 'WMT.COM' as channel
     , yr_month
     , sku
-    , STRING_AGG(DISTINCT CAST(ecomm_upc_number AS STRING), ', ') AS upc_list
-    , ANY_VALUE(product_name) as title
+    --, STRING_AGG(DISTINCT CAST(ecomm_upc_number AS STRING), ', ') AS upc_list
+    , ecomm_upc_number AS upc
+    , ANY_VALUE(product_name) AS title
  --   , ANY_VALUE(brand_name) as brand
  --   , ANY_VALUE(catalog_category) as category
     , SUM(shipped_units) AS shipped_units
@@ -50,13 +54,14 @@ SELECT 'WMT.COM' as channel
 FROM
     dw.wmt_scintilla_ecom_sales
 GROUP BY
-    1, 2, 3
+    1, 2, 3, 4
 UNION ALL
 SELECT 'WMT STORE' as channel
     , yr_month
     , sku
-   , STRING_AGG(DISTINCT CAST(walmart_upc_number AS STRING), ', ') AS upc_list
-    , ANY_VALUE(product_name) as title
+    --, STRING_AGG(DISTINCT CAST(walmart_upc_number AS STRING), ', ') AS upc_list
+    , walmart_upc_number AS upc
+    , ANY_VALUE(product_name) AS title
  --  , ANY_VALUE(brand_name) as brand
  --    , ANY_VALUE(catalog_category) as category
     , SUM(shipped_units) AS shipped_units
@@ -64,7 +69,7 @@ SELECT 'WMT STORE' as channel
 FROM
     dw.wmt_scintilla_store_sales
 GROUP BY
-    1, 2, 3
+    1, 2, 3, 4
 ;
 
 

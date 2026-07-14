@@ -68,8 +68,7 @@ GROUP BY
 ;
 
 
---- test -----
-
+--- 월별 집계 : 비교용 -----
 SELECT
     yr_month
   --  , sku

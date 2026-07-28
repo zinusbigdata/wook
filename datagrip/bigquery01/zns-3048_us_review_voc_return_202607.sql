@@ -2,6 +2,107 @@
  *   ZNS-3048 : 미국 Review, CS Claim, Return 통합 분석
  */
 
+-- =================================================================
+-- I. 카테고리 기준 3개 채널 특성 비교
+-- =================================================================
+
+--WITH params AS (SELECT DATE '2025-01-01' AS start_date),
+
+-- ① 카테고리 매핑 사전: sku·zinus_sku 양쪽을 키로 사용
+WITH mp AS (
+  SELECT key_sku, ANY_VALUE(financial_category) AS fin_cat FROM (
+    SELECT sku AS key_sku, financial_category
+    FROM meta.amz_zinus_master_pdt_pi_enriched
+    WHERE sku IS NOT NULL AND financial_category IS NOT NULL
+    UNION ALL
+    SELECT zinus_sku, financial_category
+    FROM meta.amz_zinus_master_pdt_pi_enriched
+    WHERE zinus_sku IS NOT NULL AND financial_category IS NOT NULL
+  ) GROUP BY key_sku
+),
+
+-- ② VOC (date = TIMESTAMP)
+voc AS (
+  SELECT sku, COUNT(*) AS voc_cnt
+  FROM dw.cs_voc_cf
+  WHERE channel='AMAZON' AND date >= TIMESTAMP('2025-01-01')
+  GROUP BY sku
+),
+
+-- ③ 부정리뷰 (customer_material = SKU, date = TIMESTAMP)
+rvw AS (
+  SELECT customer_material AS sku, COUNT(*) AS rvw_cnt
+  FROM dw.amz_rvw_cmpl_pi_all
+  WHERE date >= TIMESTAMP('2025-01-01')
+  GROUP BY customer_material
+),
+
+-- ④ 판매/반품 (date = DATE) + 데이터 가드
+ret AS (
+  SELECT sku, SUM(customer_returns) AS returns, SUM(ordered_units) AS units
+  FROM wook.amz_sales_return
+  WHERE date >= '2025-01-01' AND sku IS NOT NULL
+    AND ordered_units >= 0 AND customer_returns >= 0
+  GROUP BY sku
+  HAVING SUM(ordered_units) > 0
+     AND SUM(customer_returns) <= SUM(ordered_units)
+),
+
+-- ⑤ SKU 단위 결합 (판매 기준 LEFT JOIN)
+base AS (
+  SELECT mp.fin_cat AS category, r.sku, r.returns, r.units,
+         COALESCE(v.voc_cnt,0) AS voc_cnt,
+         COALESCE(w.rvw_cnt,0) AS rvw_cnt
+  FROM ret r
+  LEFT JOIN mp  ON mp.key_sku = r.sku
+  LEFT JOIN voc v USING (sku)
+  LEFT JOIN rvw w USING (sku)
+  WHERE mp.fin_cat IS NOT NULL
+),
+
+-- ⑥ 카테고리 집계
+agg AS (
+  SELECT category,
+    COUNT(DISTINCT sku) AS sku_cnt,
+    CAST(SUM(units) AS INT64) AS units,
+    SUM(voc_cnt) AS voc_cnt,
+    ROUND(100 *SUM(returns)/NULLIF(SUM(units),0),1) AS return_rate,
+    ROUND(1000*SUM(voc_cnt)/NULLIF(SUM(units),0),1) AS voc_per_1k,
+    ROUND(1000*SUM(rvw_cnt)/NULLIF(SUM(units),0),1) AS rvw_per_1k
+  FROM base GROUP BY category
+)
+SELECT * FROM agg;
+
+
+
+
+-- ==== 추가 테이블 버전 ====================================================
+SELECT
+  category    AS `카테고리`,
+  sku_cnt     AS `SKU`,
+  FORMAT('%\'d', units) AS `판매수`,
+  return_rate AS `반품률`,
+  voc_per_1k  AS `VOC_1k`,
+  rvw_per_1k  AS `리뷰_1k`,
+  CASE
+    WHEN voc_cnt = 0                                         THEN '기타'
+    WHEN return_rate >= 6.0 AND rvw_per_1k >= 1.5*voc_per_1k  THEN '반품+리뷰형'
+    WHEN return_rate >= 6.0                                   THEN '반품형'
+    WHEN voc_per_1k  >= 1.5*rvw_per_1k                        THEN 'VOC형'
+    WHEN rvw_per_1k  >= 1.5*voc_per_1k                        THEN '리뷰형'
+    ELSE '혼재형'
+  END AS `대응형태`
+FROM agg
+ORDER BY CASE WHEN voc_cnt = 0 THEN 1 ELSE 0 END, return_rate DESC;
+
+
+
+
+
+
+
+
+
 -- ================================================================
 -- [1] 3채널 통합 + 상관분석
 -- ================================================================

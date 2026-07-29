@@ -106,3 +106,8 @@ GROUP BY
     brand, year
 ORDER BY
     brand, year;
+
+
+
+
+

@@ -108,6 +108,10 @@ ORDER BY
     brand, year;
 
 
-
-
+-- NOVILLA 제품(asin) 매출 순위
+SELECT asin, max(title) as title,
+       round(sum(sales),1) as sales
+FROM wook.stck_sales_analysis_of_target_brands
+WHERE brand = 'NOVILLA' and year='2026'
+GROUP BY 1 ORDER BY 3 DESC;
 
